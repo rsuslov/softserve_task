@@ -1,0 +1,61 @@
+- name: Set AWS KEY ID
+  set_fact: 
+    aws_key_id: "{{ lookup('env','AWS_ACCESS_KEY_ID') }}"
+  delegate_to: 127.0.0.1
+
+- name: Set AWS SECRET
+  set_fact: 
+    aws_secret_key: "{{ lookup('env','AWS_SECRET_ACCESS_KEY') }}"
+  delegate_to: 127.0.0.1
+
+- name: Get AWS KEY ID
+  set_fact: aws_key_id = "{{ hostvars[inventory_hostname]['aws_key_id'] }}"
+
+- name: Get AWS SECRET KEY
+  set_fact: aws_secret_key = "{{ hostvars[inventory_hostname]['aws_secret_key'] }}"
+
+- name: Update packages
+  apt: 
+    update_cache: yes
+  become: yes
+
+- pause:
+    minutes: 1
+
+- name: Install python3-pip
+  apt:
+    name: python3-pip
+    state: latest
+  become: yes
+
+- name: Ensure botocore and boto3 modules are installed
+  pip:
+    name: [ "boto3", "botocore"]
+    extra_args: "--user"
+
+- name: Ensure nginx is at the latest version
+  become: yes
+  apt: 
+    name: nginx
+    state: latest
+
+- name: Start nginx
+  service:
+      name: nginx
+      state: started
+  become: yes
+
+- name: Upload from S3 bucket default index.html to EC2 instance
+  aws_s3:
+    aws_access_key: "{{ aws_key_id }}"
+    aws_secret_key: "{{ aws_secret_key }}"
+    bucket: nginx-temp-efth
+    object: index.html
+    dest: /var/www/html/index.html
+    mode: get
+
+- name: Restart nginx
+  service:
+    name: nginx
+    state: restarted
+  become: yes
